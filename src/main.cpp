@@ -2,6 +2,7 @@
 #include <SPI.h>
 #include <EthernetENC.h>
 #include <voltage.h> 
+#include <current.h>
 
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 // if you don't want to use DNS (and reduce your sketch size)
@@ -12,80 +13,68 @@ IPAddress ip(192, 168, 0, 177);
 IPAddress myDns(192, 168, 0, 1);
 
 EthernetClient client;
-int TTET = 60;
-  
 
+void POSTBatteryVoltage()
+{
+  // Battery Voltages
+  String StartURL = F("GET /input/post?node=BatteryVoltage&apikey=17bda09eb30a8f93c375d009a6066c2c&fulljson={");
+  StartURL += F("\"Battery1\":");
+  StartURL += B1Voltage;
+  StartURL += F(",\"Battery2\":");
+  StartURL += B2Voltage;
+  StartURL += F(",\"Battery3\":");
+  StartURL += B3Voltage;
+  StartURL += F(",\"Battery4\":");
+  StartURL += B4Voltage;
+  StartURL += "} HTTP/1.1";
 
-int freeRam() {
-
-  extern int __heap_start,*__brkval;
-
-  int v;
-
-  return (int)&v - (__brkval == 0  
-
-    ? (int)&__heap_start : (int) __brkval);  
-
-}
-
-void display_freeram() {
-
-  Serial.print(F("- SRAM left: "));
-
-  Serial.println(freeRam());
-
-}
-
-void makeHTTTP(float voltageH , float currentH) {
-// String URL = "GET /input/post?node=BatteryVoltage&apikey=17bda09eb30a8f93c375d009a6066c2c&fulljson={";
-
-String URL2 = "GET /input/post?node=BatteryVoltage";
-String APIKEY = "&apikey=17bda09eb30a8f93c375d009a6066c2c&fulljson={";
-String URLEND = "} HTTP/1.1";
-
-URL2 += APIKEY;
-URL2 += "\"Voltage\":";
-URL2 += voltageH;
-URL2 += ",\"Amp\":";
-URL2 += currentH;
-URL2 += URLEND;
-
-
-
-  // if (client.connect(server, 80)) {
-  //   Serial.print("connected to ");
-  //   Serial.println(client.remoteIP());
-  //   Serial.println(URL + "\"Battery1\":" + TTET + "\"Battery2\":" + TTET +"\"Battery3\":" + TTET +"\"Battery4\":" + TTET + URLEND);
-  //   client.println(URL + "\"Battery1\":" + TTET + "\"Battery2\":" + TTET +"\"Battery3\":" + TTET +"\"Battery4\":" + TTET + URLEND);
-  //   client.println("Host: 85.89.32.58");
-  //   client.println("Connection: close");
-  //   client.println();
-  // } else {
-  //   // if you didn't get a connection to the server:
-  //   Serial.println("connection failed");
-  // }
-
-    if (client.connect(server, 80)) {
+  if (client.connect(server, 80))
+  {
     Serial.print("connected to ");
     Serial.println(client.remoteIP());
-    Serial.println(URL2);
-    client.println(URL2);
+    Serial.println(StartURL);
+    client.println(StartURL);
     client.println("Host: 85.89.32.58");
     client.println("Connection: close");
     client.println();
-    client.stop();
+  }
+  else
+  {
+    // if you didn't get a connection to the server:
+    Serial.println("connection failed");
+  }
+}
+
+void POSTcurrent(){
+  String StartURL2 = F("GET /input/post?node=BatteryPower&apikey=17bda09eb30a8f93c375d009a6066c2c&fulljson={");
+  StartURL2 += F("\"Voltage\":");
+  StartURL2 += String(voltage, 3);
+  StartURL2 += F(",\"Amp\":");
+  StartURL2 += String(current, 2);
+  StartURL2 += "} HTTP/1.1";
+
+
+  if (client.connect(server, 80))
+  {
+    Serial.print("connected to ");
+    Serial.println(client.remoteIP());
+    Serial.println(StartURL2);
+    client.println(StartURL2);
+    client.println("Host: 85.89.32.58");
+    client.println("Connection: close");
+    client.println();
   } else {
     // if you didn't get a connection to the server:
     Serial.println("connection failed");
   }
-
 }
 
 
 void setup() {
-    //Robojax.com ACS758 Current Sensor 
-    Serial.begin(9600);
-display_freeram();
+ //Robojax.com ACS758 Current Sensor 
+Serial.begin(9600);
+
+
 Serial.println("Initialize Ethernet with DHCP:");
   if (Ethernet.begin(mac) == 0) {
     Serial.println("Failed to configure Ethernet using DHCP");
@@ -118,10 +107,11 @@ bool printWebData = true;  // set to false for better speed measurement
 
 void loop() {
   
-  display_freeram();
+  BatteryCurrent();
   BatteryVoltage();
 
-  makeHTTTP(voltage,current);
+  POSTcurrent();
+  POSTBatteryVoltage();
 
   int len = client.available();
   if (len > 0) {
